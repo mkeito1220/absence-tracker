@@ -215,14 +215,37 @@ def absence_status():
                         st.markdown(f"**残り{remaining}回**")
             
             with col3:
+                # 危険度バーの表示
                 progress = min(current_absences / max_absences, 1.0)
+                
                 if is_failed:
-                    st.progress(1.0)
-                    st.markdown("**進捗: 上限超過**")
+                    # 落単確定の場合は赤色のバー
+                    st.markdown("""
+                    <div style="background-color: #ff4444; color: white; padding: 8px; border-radius: 5px; text-align: center;">
+                        <strong>🚨 危険度: 落単確定</strong>
+                    </div>
+                    """, unsafe_allow_html=True)
+                elif remaining <= 1:
+                    # 注意の場合は黄色のバー
+                    st.markdown("""
+                    <div style="background-color: #ff9800; color: white; padding: 8px; border-radius: 5px; text-align: center;">
+                        <strong>⚠️ 危険度: 注意</strong>
+                    </div>
+                    """, unsafe_allow_html=True)
                 else:
-                    st.progress(progress)
+                    # 安全の場合は緑色のバー
+                    st.markdown("""
+                    <div style="background-color: #4caf50; color: white; padding: 8px; border-radius: 5px; text-align: center;">
+                        <strong>✅ 危険度: 安全</strong>
+                    </div>
+                    """, unsafe_allow_html=True)
+                
+                # 危険度の詳細表示
+                if is_failed:
+                    st.markdown("**上限超過**")
+                else:
                     percentage = int(progress * 100)
-                    st.markdown(f"**進捗: {percentage}%**")
+                    st.markdown(f"**使用率: {percentage}%**")
             
             # 欠席履歴の表示
             if subject in absences and absences[subject]:
