@@ -259,6 +259,20 @@ def timetable_view():
         st.warning("まず科目を登録してください。")
         return
     
+    # 表示形式の選択
+    display_mode = st.radio(
+        "表示形式を選択",
+        ["カレンダー表示", "曜日別表示"],
+        horizontal=True
+    )
+    
+    if display_mode == "カレンダー表示":
+        calendar_view(subjects, absences)
+    else:
+        weekday_view(subjects, absences)
+
+def calendar_view(subjects, absences):
+    """カレンダー表示機能"""
     # 月選択
     col1, col2 = st.columns(2)
     with col1:
@@ -420,6 +434,102 @@ def timetable_view():
                     st.metric("最多欠席科目", max_subject, monthly_stats[max_subject])
     else:
         st.success(f"{selected_year}年{selected_month}月は欠席がありませんでした！")
+
+def weekday_view(subjects, absences):
+    """曜日別表示機能"""
+    st.subheader("曜日別欠席状況")
+    
+    # 科目フィルター
+    selected_subjects = st.multiselect(
+        "表示する科目を選択（空の場合は全科目表示）",
+        list(subjects.keys()),
+        default=list(subjects.keys()),
+        key="weekday_subjects"
+    )
+    
+    if not selected_subjects:
+        selected_subjects = list(subjects.keys())
+    
+    # 曜日別の欠席データを集計
+    weekday_names = ['月曜日', '火曜日', '水曜日', '木曜日', '金曜日', '土曜日', '日曜日']
+    weekday_data = {day: {} for day in weekday_names}
+    
+    for subject in selected_subjects:
+        if subject in absences:
+            for absence in absences[subject]:
+                absence_date = datetime.fromisoformat(absence['date'])
+                weekday = weekday_names[absence_date.weekday()]
+                
+                if subject not in weekday_data[weekday]:
+                    weekday_data[weekday][subject] = []
+                
+                weekday_data[weekday][subject].append({
+                    'date': absence['date'],
+                    'reason': absence.get('reason', '')
+                })
+    
+    # 曜日別表示
+    for weekday in weekday_names:
+        with st.expander(f"📅 {weekday}", expanded=True):
+            if weekday_data[weekday]:
+                for subject, absence_list in weekday_data[weekday].items():
+                    # 科目の状態を判定
+                    current_absences = len(absences.get(subject, []))
+                    max_absences = subjects[subject]['max_absences']
+                    
+                    if current_absences > max_absences:
+                        status_icon = "🚨"
+                        status_text = "落単確定"
+                        status_color = "red"
+                    elif max_absences - current_absences <= 1:
+                        status_icon = "⚠️"
+                        status_text = "注意"
+                        status_color = "orange"
+                    else:
+                        status_icon = "✅"
+                        status_text = "安全"
+                        status_color = "green"
+                    
+                    st.markdown(f"**{status_icon} {subject}** ({status_text}) - {len(absence_list)}回欠席")
+                    
+                    # 欠席詳細を表示
+                    for absence in absence_list:
+                        formatted_date = datetime.fromisoformat(absence['date']).strftime('%Y/%m/%d')
+                        reason_text = f" - {absence['reason']}" if absence['reason'] else ""
+                        st.write(f"　• {formatted_date}{reason_text}")
+                    
+                    st.divider()
+            else:
+                st.info(f"{weekday}に欠席した科目はありません")
+    
+    # 曜日別統計
+    st.subheader("曜日別統計")
+    
+    weekday_stats = {}
+    for weekday in weekday_names:
+        total_absences = sum(len(absence_list) for absence_list in weekday_data[weekday].values())
+        weekday_stats[weekday] = total_absences
+    
+    # 統計をグラフ風に表示
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        st.write("**曜日別欠席回数:**")
+        for weekday, count in weekday_stats.items():
+            if count > 0:
+                st.write(f"• {weekday}: {count}回")
+            else:
+                st.write(f"• {weekday}: 0回")
+    
+    with col2:
+        if any(count > 0 for count in weekday_stats.values()):
+            max_weekday = max(weekday_stats, key=weekday_stats.get)
+            min_weekday = min(weekday_stats, key=weekday_stats.get)
+            
+            st.metric("最多欠席曜日", max_weekday, weekday_stats[max_weekday])
+            st.metric("最少欠席曜日", min_weekday, weekday_stats[min_weekday])
+        else:
+            st.info("欠席データがありません")
 
 if __name__ == "__main__":
     main()
